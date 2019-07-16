@@ -10,13 +10,18 @@ import VectorSource from "ol/source/Vector";
 import Feature from "ol/Feature";
 import Point from "ol/geom/Point";
 
-import {open, write, close, getFacility, deleteFacility} from "./omi";
+import {open, write, close} from "./omi";
 import Circle from "ol/geom/Circle";
 import * as AmazonCognitoIdentity from "amazon-cognito-identity-js";
+import Select from "ol/interaction/Select";
+import {pointerMove} from "ol/events/condition";
 
 
 //const omiNode = "ws://35.157.16.134:8080";
 const omiNode = "wss://azyxvmiy8f.execute-api.eu-central-1.amazonaws.com/prod";
+//const omiNodes = ["wss://azyxvmiy8f.execute-api.eu-central-1.amazonaws.com/prod",
+ //   "ws://veivi.parkkis.com:8080/"
+//];
 
 const backend = "https://vqe2g3hycb.execute-api.eu-central-1.amazonaws.com/prod/parkingfacilities"
 
@@ -26,8 +31,6 @@ const userData = createUserPool();
 let accessToken = null;
 let idToken = null;
 let olMap;
-
-let myFacilities = [];
 
 function main() {
     const mainElement = document.querySelector('main');
@@ -152,9 +155,26 @@ function main() {
                     map.on('moveend', onMoveEnd)
                 }
             );
-
         })
     }
+    const info = document.getElementById('info');
+
+    let selectPointerMove = new Select({
+        condition: pointerMove
+    });
+
+    map.addInteraction(selectPointerMove);
+    selectPointerMove.on('select', function (e) {
+        let features = e.target.getFeatures();
+        if (features.getLength() > 0) {
+            console.log(features)
+            let feature = features.getArray()[0]
+            info.innerHTML = '<pre>' + JSON.stringify(feature.get('sensor'), null, " ") + '</pre>'
+        }
+
+    })
+
+
 }
 
 main();
@@ -179,26 +199,6 @@ if (hash) {
     console.log(authInfo);
     accessToken = authInfo.access_token;
     idToken = authInfo.id_token;
-
-    console.log(idToken);
-
-    fetch(`${backend}`, {
-        headers: {
-            Authorization: idToken
-        }
-    })
-        .then(res => {
-            if (res.ok) return res.json()
-            console.log("fail")
-        })
-        .then(idReply => {
-            console.log(`idreply: ${JSON.stringify(idReply)}`);
-
-            const existing = document.getElementById('existing');
-            existing.appendChild(listFacilities(idReply.facilityIds));
-
-        })
-
 } else {
     const loginLink = document.getElementById('login');
     loginLink.innerHTML = `<a href="https://mypark.auth.eu-central-1.amazoncognito.com/login?response_type=token&client_id=5s8ou6hd2k9t0ro0p9uq5hrfnp&redirect_uri=${window.location.href}&scope=openid+profile+aws.cognito.signin.user.admin&state=12121212">login</a>
@@ -290,11 +290,6 @@ function parseOmiReply(omiXml) {
     const longitudePath = "./odf:Object/odf:InfoItem[@name='longitude']";
     const latitudePath = "./odf:Object/odf:InfoItem[@name='latitude']";
 
-    const parkingSpacesPath = ".//odf:Object[@type='mv:ParkingSpace']";
-    const spaceIdPath = "./odf:id"
-    const spaceAvailablePath = "./odf:Object/odf:InfoItem[@name='available']";
-
-
     const facilityNodes = omiDom.evaluate(parkingFacilityPath, omiDom, nsResolver, XPathResult.ANY_TYPE, null);
 
 
@@ -302,27 +297,13 @@ function parseOmiReply(omiXml) {
     while (facilityNode) {
         let longitudeNodes = omiDom.evaluate(longitudePath, facilityNode, nsResolver, XPathResult.ANY_TYPE, null);
         let latitudeNodes = omiDom.evaluate(latitudePath, facilityNode, nsResolver, XPathResult.ANY_TYPE, null);
-        let parkingSpaceNodes = omiDom.evaluate(parkingSpacesPath, facilityNode, nsResolver, XPathResult.ANY_TYPE, null);
         let latitudeNode = latitudeNodes.iterateNext();
         let longitudeNode = longitudeNodes.iterateNext();
         if (!allFacilities.has(facilityNode.children[0].textContent)) {
-            const parkingSpaces = [];
-            let parkingSpaceNode = parkingSpaceNodes.iterateNext();
-            while(parkingSpaceNode !== null) {
-                const spaceIdNode = omiDom.evaluate(spaceIdPath, parkingSpaceNode, nsResolver, XPathResult.ANY_TYPE, null);
-                const spaceAvailableNode = omiDom.evaluate(spaceAvailablePath, parkingSpaceNode, nsResolver, XPathResult.ANY_TYPE, null);
-                const parkingSpace = {
-                    id: spaceIdNode.textContent,
-                    available: spaceAvailableNode.textContent
-                };
-                parkingSpaces.push(parkingSpace);
-                parkingSpaceNode = parkingSpaceNodes.iterateNext();
-            }
             const facility = {
                 id: facilityNode.children[0].textContent,
                 latitude: Number.parseFloat(latitudeNode.textContent),
-                longitude: Number.parseFloat(longitudeNode.textContent),
-                parkingSpaces: parkingSpaces
+                longitude: Number.parseFloat(longitudeNode.textContent)
             };
             facilities.push(facility);
             allFacilities.set(facility.id, facility)
@@ -334,11 +315,14 @@ function parseOmiReply(omiXml) {
 
 function placeFacilitiesToSource(facilities, source) {
 
-    const features = facilities.map(facility =>
-        new Feature({
-            geometry: new Point(fromLonLat([facility.longitude, facility.latitude])),
-            name: facility.id
-        })
+    const features = facilities.map(facility => {
+            const feature = new Feature({
+                geometry: new Point(fromLonLat([facility.longitude, facility.latitude])),
+                name: facility.id
+            })
+            feature.set('sensor', facility)
+            return feature
+        }
     );
 
     source.addFeatures(features)
@@ -431,6 +415,25 @@ function logIn(userData, authenticationData) {
 }
 
 
+function initLogin() {
+//    const loginButton = document.getElementById('login-button');
+
+    const loginForm = document.getElementById("login");
+    loginForm.addEventListener("submit", ev => {
+        ev.preventDefault();
+        const userName = document.getElementById("username-input").value;
+        const userPasswd = document.getElementById("userpasswd-input").value;
+
+        const authenticationData = {
+            Username: userName,
+            Password: userPasswd,
+        };
+        logIn(userData, authenticationData);
+        return false
+    })
+}
+
+//initLogin();
 
 
 if (idToken) {
@@ -491,33 +494,3 @@ function initFacility() {
 }
 
 initFacility();
-
-
-function listFacilities(facilityIds) {
-
-    const facilityList = document.createElement('UL');
-
-    facilityIds.forEach(facilityId => {
-        const facilityLine = document.createElement('LI');
-        facilityLine.id = facilityId;
-        facilityList.appendChild(facilityLine);
-        getFacility(facilityId).then(omiXml => {
-            const facilities = parseOmiReply(omiXml)
-            const facility = facilities[0]
-
-            facilityLine.innerText = `id: ${facility.id}, ${facility.longitude}, ${facility.latitude}, ${facility.parkingSpaces.length}`
-
-            const deleteButton = document.createElement('button');
-            deleteButton.innerText = 'Poista';
-            deleteButton.addEventListener('click', event => {
-                    const done = addInProgress(`deleting ${facility.id}`)
-                    deleteFacility(facility.id, idToken).then(r => done());
-            })
-            facilityLine.appendChild(deleteButton);
-
-        }).catch(err => console.log(`getfacility err: ${err}`))
-    });
-
-    return facilityList;
-
-}

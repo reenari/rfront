@@ -1,4 +1,3 @@
-
 let omiConnection;
 
 const onFly = [];
@@ -8,22 +7,31 @@ export function open(host) {
         omiConnection = new WebSocket(host);
 
         omiConnection.onopen = () => {
-           omiConnection.onmessage = event => {
-               const first = onFly.shift();
-               if(first)
-                   first.resolve(event.data)
+            omiConnection.onmessage = event => {
+                const first = onFly.shift();
+                if (first)
+                    first.resolve(event.data)
             };
 
-            function noop(){}
+            // function noop(){}
             // let ping = setInterval(function() {
-            //     omiConnection.ping(noop);
-            //     console.log("ping");
-            // }, 30000);
+            //      omiConnection.ping(noop);
+            //      console.log("ping");
+            //  }, 3000);
 
             return resolve(omiConnection);
+        };
+
+        omiConnection.onclose = () => {
+            alert("close")
+        };
+
+        omiConnection.onerror = () => {
+            alert("error")
         }
     })
 }
+
 export function close() {
     omiConnection.close();
 }
@@ -67,11 +75,61 @@ export function write(lon, lat, distance = 500) {
 </call>
 </omiEnvelope>`;
 
-        return new Promise((resolve, reject) => {
-            omiConnection.send(omiEnvelope, err => {
-                reject(err)
-            });
-            onFly.push({resolve, reject})
-        })
+    return new Promise((resolve, reject) => {
+        omiConnection.send(omiEnvelope, err => {
+            reject(err)
+        });
+        onFly.push({resolve, reject})
+    })
+
+}
+
+
+const omiNode = "https://hi68ue9m1i.execute-api.eu-central-1.amazonaws.com/prod";
+
+export function getFacility(id) {
+
+    const omiEnvelope = `<omiEnvelope xmlns="http://www.opengroup.org/xsd/omi/1.0/" version="1.0" ttl="0">
+  <read msgformat="odf">
+    <msg><Objects xmlns="http://www.opengroup.org/xsd/odf/1.0/">
+    <Object><id>ParkingService</id><Object><id>ParkingFacilities</id>
+    <Object><id>${id}</id></Object></Object></Object></Objects></msg>
+  </read>
+</omiEnvelope>`;
+
+
+    return fetch(omiNode, {
+        method: 'POST',
+        body: omiEnvelope,
+    }).then(res => {
+        return res.text()
+    }).then(text => {
+        console.log(text)
+        return text
+    });
+}
+
+export function deleteFacility(id, token) {
+
+    const omiEnvelope = `<omiEnvelope xmlns="http://www.opengroup.org/xsd/omi/1.0/" version="1.0" ttl="0">
+    <delete msgformat="odf">
+        <msg><Objects xmlns="http://www.opengroup.org/xsd/odf/1.0/"><Object><id>ParkingService</id>
+        <Object><id>ParkingFacilities</id>
+        <Object><id>${id}</id></Object></Object></Object></Objects></msg>
+    </delete>
+    </omiEnvelope>`;
+
+    return fetch(omiNode, {
+        method: 'POST',
+        body: omiEnvelope,
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    }).then(res => {
+        return res.text()
+    }).then(text => {
+        console.log(text)
+        return text
+    });
 
 }

@@ -4,9 +4,13 @@ const CleanWebpackPlugin = require('clean-webpack-plugin');
 
 
 module.exports = {
-    mode: 'development',
+//    mode: 'production',
     devtool: "inline-source-maps",
-    entry: './src/index.js',
+    entry: {
+        app: './src/index.js',
+        app2: './src/index2.js',
+        appNG: './src/indexNG.js'
+    },
     devServer: {
         contentBase: 'dist',
         port: 9080,
@@ -15,11 +19,26 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(),
         new HtmlWebpackPlugin({
+            filename: 'index.html',
+            chunks: ['app'],
+            hash: true,
             template: "./src/index.html"
+        }),
+        new HtmlWebpackPlugin({
+            filename: 'index2.html',
+            chunks: ['app2'],
+            hash: true,
+            template: "./src/index2.html"
+        }),
+        new HtmlWebpackPlugin({
+            filename: 'sensormap.html',
+            chunks: ['appNG'],
+            hash: true,
+            template: "./src/sensormap.html"
         })],
     output: {
         path: path.resolve(__dirname, 'dist'),
-        filename: 'main.js'
+        filename: '[name].bundle[hash].js'
     },
     module: {
         rules: [

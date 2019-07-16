@@ -7,7 +7,7 @@ describe('smoke', () => {
 
     beforeAll(async () => {
         browser = await puppeteer.launch({
-            headless: false
+    //            headless: false
         });
     });
 
@@ -18,7 +18,7 @@ describe('smoke', () => {
         await mocker.start({
             page: page,
             mockList: [
- //               'openstreetmap.org',
+                //               'openstreetmap.org',
                 '35.157.16.134'
             ],
 //            verbose: true
@@ -46,33 +46,64 @@ describe('smoke', () => {
         expect(pageTitle).toBe('Front')
     });
 
-    it('Default values for coordinate inputs should be near users location', async () => {
-        await page.waitFor(5000); // should wait for geolocation to finish?
-        const longitudeInput = await page.$eval('#longitude-input', el => el.value);
-        const latitudeInput = await page.$eval('#latitude-input', el => el.value);
-
-        expect(latitudeInput).toBeCloseTo(60.30);
-        expect(longitudeInput).toBeCloseTo(24.74)
-
-    }, 6000);
-
-    it('no parking space inputs', async () => {
-        const parkingSpaceInputs = await page.$$('#parking-spaces div');
-        expect(parkingSpaceInputs.length).toBe(0);
+    it('should have an \'Lisää kohde\' button', async () => {
+        const button = await page.$('#add-parking-facility')
+        expect(button).not.toBeNull();
+        let text = await page.evaluate(btn => {
+            return Promise.resolve(btn.innerText)
+        }, button);
+        expect(text).toBe('Lisää kohde');
     });
 
-    describe('Clicking <lisää paikka>', () => {
+    describe("cliked 'Lisää kohde'", async () => {
 
         beforeEach(async () => {
-            await page.click('#add-parking-space');
+            await page.click('#add-parking-facility')
         });
 
-        it('will add input for parking space', async () => {
+        it("\'Uusi parkkialue\' inputs should be visible", async () => {
+
+            await page.waitFor(selector => !!document.querySelector(selector), {polling: 'mutation'}, '#parking-facility-form')
+
+        });
+
+        it('Default values for coordinate inputs should be near users location', async () => {
+ //           await page.waitFor(5000); // should wait for geolocation to finish?
+            const longitudeInput = await page.$eval('#longitude-input', el => el.value);
+            const latitudeInput = await page.$eval('#latitude-input', el => el.value);
+
+            expect(latitudeInput).toBeCloseTo(60.30);
+            expect(longitudeInput).toBeCloseTo(24.74)
+
+        }, 6000);
+
+        it('no parking space inputs', async () => {
             const parkingSpaceInputs = await page.$$('#parking-spaces div');
+            expect(parkingSpaceInputs.length).toBe(0);
+        });
 
-            expect(parkingSpaceInputs.length).toBe(1);
+        describe('Clicking <lisää paikka>', () => {
+
+            beforeEach(async () => {
+                await page.click('#add-parking-space');
+            });
+
+            it('will add input for parking space', async () => {
+                const parkingSpaceInputs = await page.$$('#parking-spaces div');
+
+                expect(parkingSpaceInputs.length).toBe(1);
+            })
         })
-    })
 
+    });
 
 });
+
+
+function waitForElement() {
+
+}
+
+function waitForElementVisible() {
+    
+}

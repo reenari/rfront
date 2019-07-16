@@ -1,5 +1,7 @@
 
-
+#map {
+    width: 60rem;
+}
 
 h1 {
     color: blueviolet;
@@ -8,4 +10,29 @@ h1 {
 .icon {
     height: 2rem;
     width: 2rem;
+}
+
+#info {
+  //    position: absolute;
+  background-color: wheat;
+}
+
+#add-parking-facility {
+  display: none;
+}
+
+#parking-facility {
+  box-sizing: border-box;
+  border: 1px solid grey;
+  padding: 2em;
+  width: 60rem;
+
+  .buttons-div {
+margin-top: 2em;
+
+  }
+}
+
+.hidden {
+  display: none
 }
